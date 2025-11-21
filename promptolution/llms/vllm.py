@@ -38,7 +38,7 @@ class VLLM(BaseLLM):
         update_token_count: Update the token count based on the given inputs and outputs.
     """
 
-    tokenizer: PreTrainedTokenizer
+    tokenizer: "PreTrainedTokenizer"
 
     def __init__(
         self,
