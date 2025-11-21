@@ -318,7 +318,7 @@ class CAPO(BaseOptimizer):
             # Create mask for survivors and filter candidates
             survivor_mask = n_better < k
             candidates = list(compress(candidates, survivor_mask))
-            block_scores = list(compress(block_scores, survivor_mask))
+            block_scores = [list(compress(bs, survivor_mask)) for bs in block_scores]
 
             i += 1
             self.task.increment_block_idx()
