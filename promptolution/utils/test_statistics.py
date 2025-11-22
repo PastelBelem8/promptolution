@@ -6,7 +6,7 @@ Contains paired t-test functionality to compare prompt performance and determine
 import numpy as np
 from scipy.stats import ttest_rel
 
-from typing import Any, Callable, List, Literal
+from typing import Callable, List, Literal
 
 TestStatistics = Literal["paired_t_test"]
 
