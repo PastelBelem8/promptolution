@@ -4,31 +4,8 @@ import pandas as pd
 
 from tests.mocks.mock_task import MockTask
 
-from promptolution.optimizers.capo import CAPO, CAPOPrompt
-
-
-def test_capo_prompt_initialization():
-    """Test that CAPOPrompt initializes correctly."""
-    instruction = "Classify the sentiment of the text."
-    few_shots = ["Example 1: Positive", "Example 2: Negative"]
-    prompt = CAPOPrompt(instruction, few_shots)
-
-    # Verify attributes
-    assert prompt.instruction_text == instruction
-    assert prompt.few_shots == few_shots
-
-
-def test_capo_prompt_construct_prompt():
-    """Test the construct_prompt method of CAPOPrompt."""
-    instruction = "Classify the sentiment of the text."
-    few_shots = ["Example 1: Positive", "Example 2: Negative"]
-    prompt = CAPOPrompt(instruction, few_shots)
-
-    # Get the constructed prompt
-    constructed = prompt.construct_prompt()
-
-    # Verify the prompt contains the instruction
-    assert instruction in constructed
+from promptolution.optimizers.capo import CAPO
+from promptolution.utils.prompt import Prompt
 
 
 def test_capo_initialization(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mock_df):
@@ -67,11 +44,11 @@ def test_capo_initialize_population(mock_meta_llm, mock_predictor, initial_promp
 
     # Control randomness
     with patch("random.randint", return_value=2):
-        population = optimizer._initialize_population(initial_prompts)
+        population = optimizer._initialize_population([Prompt(p) for p in initial_prompts])
 
     # Verify population was created
     assert len(population) == len(initial_prompts)
-    assert all(isinstance(p, CAPOPrompt) for p in population)
+    assert all(isinstance(p, Prompt) for p in population)
 
 
 def test_capo_step(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mock_df):
@@ -86,25 +63,26 @@ def test_capo_step(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mo
     )
 
     # Create mock prompt objects
-    mock_prompts = [CAPOPrompt("Instruction 1", ["Example 1"]), CAPOPrompt("Instruction 2", ["Example 2"])]
+    mock_prompts = [Prompt("Instruction 1", ["Example 1"]), Prompt("Instruction 2", ["Example 2"])]
     optimizer.prompt_objects = mock_prompts
 
     # Mock the internal methods to avoid complexity
-    mock_offspring = [CAPOPrompt("Offspring", ["Example"])]
+    mock_offspring = [Prompt("Offspring", ["Example"])]
     optimizer._crossover = lambda x: mock_offspring
 
-    mock_mutated = [CAPOPrompt("Mutated", ["Example"])]
+    mock_mutated = [Prompt("Mutated", ["Example"])]
     optimizer._mutate = lambda x: mock_mutated
 
-    mock_survivors = [CAPOPrompt("Survivor 1", ["Example"]), CAPOPrompt("Survivor 2", ["Example"])]
-    optimizer._do_racing = lambda x, k: mock_survivors
+    mock_survivors = [Prompt("Survivor 1", ["Example"]), Prompt("Survivor 2", ["Example"])]
+    mock_scores = [0.9, 0.8]
+    optimizer._do_racing = lambda x, k: (mock_survivors, mock_scores)
 
     # Call _step
     result = optimizer._step()
 
     # Verify results
     assert len(result) == 2  # Should match population_size
-    assert all(isinstance(p, str) for p in result)
+    assert all(isinstance(p, Prompt) for p in result)
 
 
 def test_capo_optimize(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mock_df):
@@ -169,9 +147,7 @@ def test_crossover(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mo
         crossovers_per_iter=5,
     )
 
-    offsprings = optimizer._crossover(
-        [CAPOPrompt("Instruction 1", ["Example 1"]), CAPOPrompt("Instruction 2", ["Example 2"])]
-    )
+    offsprings = optimizer._crossover([Prompt("Instruction 1", ["Example 1"]), Prompt("Instruction 2", ["Example 2"])])
     assert len(offsprings) == 5
 
 
@@ -184,9 +160,7 @@ def test_mutate(mock_meta_llm, mock_predictor, initial_prompts, mock_task, mock_
         df_few_shots=mock_df,
     )
 
-    mutated = optimizer._mutate(
-        [CAPOPrompt("Instruction 1", ["Example 1"]), CAPOPrompt("Instruction 2", ["Example 2"])]
-    )
+    mutated = optimizer._mutate([Prompt("Instruction 1", ["Example 1"]), Prompt("Instruction 2", ["Example 2"])])
     assert len(mutated) == 2
 
 
@@ -200,11 +174,13 @@ def test_do_racing(mock_meta_llm, mock_predictor, initial_prompts, mock_df):
         df_few_shots=pd.concat([mock_df] * 5, ignore_index=True),
     )
     optimizer._pre_optimization_loop()
-    survivors = optimizer._do_racing(
-        [CAPOPrompt("good instruction", ["Example 1"]), CAPOPrompt("better instruction", ["Example 2"])], 1
+    survivors, scores = optimizer._do_racing(
+        [Prompt("good instruction", ["Example 1"]), Prompt("better instruction", ["Example 2"])], 1
     )
     assert len(survivors) == 1
-    assert "better instruction" in survivors[0].instruction_text
+    assert len(scores) == 1
+
+    assert "better instruction" in survivors[0].instruction
 
     assert mock_task.reset_block_idx.call_count == 2
     assert mock_task.increment_block_idx.call_count == 3

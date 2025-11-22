@@ -19,50 +19,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.test_statistics import TestStatistics
 
 from promptolution.optimizers.base_optimizer import BaseOptimizer
-from promptolution.optimizers.templates import (
-    CAPO_CROSSOVER_TEMPLATE,
-    CAPO_DOWNSTREAM_TEMPLATE,
-    CAPO_FEWSHOT_TEMPLATE,
-    CAPO_MUTATION_TEMPLATE,
-)
 from promptolution.utils.logging import get_logger
+from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
+from promptolution.utils.templates import CAPO_CROSSOVER_TEMPLATE, CAPO_FEWSHOT_TEMPLATE, CAPO_MUTATION_TEMPLATE
 from promptolution.utils.test_statistics import get_test_statistic_func
 from promptolution.utils.token_counter import get_token_counter
 
 logger = get_logger(__name__)
-
-
-class CAPOPrompt:
-    """Represents a prompt consisting of an instruction and few-shot examples."""
-
-    def __init__(self, instruction_text: str, few_shots: List[str]) -> None:
-        """Initializes the Prompt with an instruction and associated examples.
-
-        Args:
-            instruction_text (str): The instruction or prompt text.
-            few_shots (List[str]): List of examples as string.
-        """
-        self.instruction_text = instruction_text.strip()
-        self.few_shots = few_shots
-
-    def construct_prompt(self) -> str:
-        """Constructs the full prompt string by replacing placeholders in the template with the instruction and formatted examples.
-
-        Returns:
-            str: The constructed prompt string.
-        """
-        few_shot_str = "\n\n".join(self.few_shots).strip()
-        prompt = (
-            CAPO_DOWNSTREAM_TEMPLATE.replace("<instruction>", self.instruction_text)
-            .replace("<few_shots>", few_shot_str)
-            .replace("\n\n\n\n", "\n\n")  # replace extra newlines if no few shots are provided
-            .strip()
-        )
-        return prompt
-
-    def __str__(self) -> str:
-        """Returns the string representation of the prompt."""
-        return self.construct_prompt()
 
 
 class CAPO(BaseOptimizer):
@@ -136,8 +99,8 @@ class CAPO(BaseOptimizer):
         self.check_fs_accuracy = check_fs_accuracy
         self.create_fs_reasoning = create_fs_reasoning
 
-        self.scores: List[float] = []
         super().__init__(predictor, task, initial_prompts, callbacks, config)
+
         self.df_few_shots = df_few_shots if df_few_shots is not None else task.pop_datapoints(frac=0.1)
         if self.max_n_blocks_eval > self.task.n_blocks:
             logger.warning(
@@ -154,7 +117,7 @@ class CAPO(BaseOptimizer):
             self.target_begin_marker = ""
             self.target_end_marker = ""
 
-    def _initialize_population(self, initial_prompts: List[str]) -> List[CAPOPrompt]:
+    def _initialize_population(self, initial_prompts: List[Prompt]) -> List[Prompt]:
         """Initializes the population of Prompt objects from initial instructions.
 
         Args:
@@ -164,10 +127,10 @@ class CAPO(BaseOptimizer):
             List[Prompt]: Initialized population of prompts with few-shot examples.
         """
         population = []
-        for instruction_text in initial_prompts:
+        for prompt in initial_prompts:
             num_examples = random.randint(0, self.upper_shots)
-            few_shots = self._create_few_shot_examples(instruction_text, num_examples)
-            population.append(CAPOPrompt(instruction_text, few_shots))
+            few_shots = self._create_few_shot_examples(prompt.instruction, num_examples)
+            population.append(Prompt(prompt.instruction, few_shots))
 
         return population
 
@@ -209,11 +172,11 @@ class CAPO(BaseOptimizer):
 
         return few_shots
 
-    def _crossover(self, parents: List[CAPOPrompt]) -> List[CAPOPrompt]:
+    def _crossover(self, parents: List[Prompt]) -> List[Prompt]:
         """Performs crossover among parent prompts to generate offsprings.
 
         Args:
-            parents (List[CAPOPrompt]): List of parent prompts.
+            parents (List[Prompt]): List of parent prompts.
 
         Returns:
             List[Prompt]: List of new offsprings after crossover.
@@ -223,8 +186,8 @@ class CAPO(BaseOptimizer):
         for _ in range(self.crossovers_per_iter):
             mother, father = random.sample(parents, 2)
             crossover_prompt = (
-                self.crossover_template.replace("<mother>", mother.instruction_text)
-                .replace("<father>", father.instruction_text)
+                self.crossover_template.replace("<mother>", mother.instruction)
+                .replace("<father>", father.instruction)
                 .strip()
             )
             # collect all crossover prompts then pass them bundled to the meta llm (speedup)
@@ -239,22 +202,22 @@ class CAPO(BaseOptimizer):
         offsprings = []
         for instruction, examples in zip(child_instructions, offspring_few_shots):
             instruction = extract_from_tag(instruction, "<prompt>", "</prompt>")
-            offsprings.append(CAPOPrompt(instruction, examples))
+            offsprings.append(Prompt(instruction, examples))
 
         return offsprings
 
-    def _mutate(self, offsprings: List[CAPOPrompt]) -> List[CAPOPrompt]:
+    def _mutate(self, offsprings: List[Prompt]) -> List[Prompt]:
         """Apply mutation to offsprings to generate new candidate prompts.
 
         Args:
-            offsprings (List[CAPOPrompt]): List of offsprings to mutate.
+            offsprings (List[Prompt]): List of offsprings to mutate.
 
         Returns:
             List[Prompt]: List of mutated prompts.
         """
         # collect all mutation prompts then pass them bundled to the meta llm (speedup)
         mutation_prompts = [
-            self.mutation_template.replace("<instruction>", prompt.instruction_text) for prompt in offsprings
+            self.mutation_template.replace("<instruction>", prompt.instruction) for prompt in offsprings
         ]
         new_instructions = self.meta_llm.get_response(mutation_prompts)
 
@@ -273,15 +236,15 @@ class CAPO(BaseOptimizer):
                 new_few_shots = prompt.few_shots
 
             random.shuffle(new_few_shots)
-            mutated.append(CAPOPrompt(new_instruction, new_few_shots))
+            mutated.append(Prompt(new_instruction, new_few_shots))
 
         return mutated
 
-    def _do_racing(self, candidates: List[CAPOPrompt], k: int) -> List[CAPOPrompt]:
+    def _do_racing(self, candidates: List[Prompt], k: int) -> Tuple[List[Prompt], List[float]]:
         """Perform the racing (selection) phase by comparing candidates based on their evaluation scores using the provided test statistic.
 
         Args:
-            candidates (List[CAPOPrompt]): List of candidate prompts.
+            candidates (List[Prompt]): List of candidate prompts.
             k (int): Number of survivors to retain.
 
         Returns:
@@ -292,9 +255,7 @@ class CAPO(BaseOptimizer):
         i = 0
         while len(candidates) > k and i < self.max_n_blocks_eval:
             # new_scores shape: (n_candidates, n_samples)
-            new_scores: List[float] = self.task.evaluate(
-                [c.construct_prompt() for c in candidates], self.predictor, return_agg_scores=False
-            )
+            new_scores: List[float] = self.task.evaluate(candidates, self.predictor, return_agg_scores=False)
 
             # subtract length penalty
             prompt_lengths = np.array([self.token_counter(c.construct_prompt()) for c in candidates])
@@ -315,40 +276,51 @@ class CAPO(BaseOptimizer):
             # Sum along rows to get number of better scores for each candidate
             n_better = np.sum(comparison_matrix, axis=1)
 
-            # Create mask for survivors and filter candidates
-            survivor_mask = n_better < k
-            candidates = list(compress(candidates, survivor_mask))
-            block_scores = [list(compress(bs, survivor_mask)) for bs in block_scores]
+            candidates, block_scores = filter_survivors(candidates, block_scores, mask=n_better < k)
 
             i += 1
             self.task.increment_block_idx()
 
-        avg_scores = self.task.evaluate(
-            [c.construct_prompt() for c in candidates], self.predictor, eval_strategy="evaluated"
-        )
-        order = np.argsort(-np.array(avg_scores))[:k]
-        candidates = [candidates[i] for i in order]
-        self.scores = [avg_scores[i] for i in order]
+        avg_scores = self.task.evaluate(candidates, self.predictor, eval_strategy="evaluated")
+        prompts, avg_scores = sort_prompts_by_scores(candidates, avg_scores, top_k=k)
 
-        return candidates
+        return prompts, avg_scores
 
     def _pre_optimization_loop(self) -> None:
-        self.prompt_objects = self._initialize_population(self.prompts)
-        self.prompts = [p.construct_prompt() for p in self.prompt_objects]
-        self.max_prompt_length = max(self.token_counter(p) for p in self.prompts) if self.prompts else 1
+        self.prompts = self._initialize_population(self.prompts)
+        self.max_prompt_length = (
+            max(self.token_counter(p.construct_prompt()) for p in self.prompts) if self.prompts else 1
+        )
         self.task.reset_block_idx()
 
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         """Perform a single optimization step.
 
         Returns:
-            List[str]: The optimized list of prompts after the step.
+            List[Prompt]: The optimized list of prompts after the step.
         """
-        offsprings = self._crossover(self.prompt_objects)
+        offsprings = self._crossover(self.prompts)
         mutated = self._mutate(offsprings)
-        combined = self.prompt_objects + mutated
+        combined = self.prompts + mutated
 
-        self.prompt_objects = self._do_racing(combined, self.population_size)
-        self.prompts = [p.construct_prompt() for p in self.prompt_objects]
+        self.prompts, self.scores = self._do_racing(combined, self.population_size)
 
         return self.prompts
+
+
+def filter_survivors(
+    candidates: List[Prompt], scores: List[List[float]], mask: Any
+) -> Tuple[List[Prompt], List[List[float]]]:
+    """Filter candidates and scores based on a boolean mask.
+
+    Args:
+        candidates (List[Prompt]): List of candidate prompts.
+        scores (List[List[float]]): Corresponding scores for the candidates.
+        mask (Any): Boolean mask indicating which candidates to keep.
+
+    Returns:
+        Tuple[List[Prompt], List[List[float]]]: Filtered candidates and their scores.
+    """
+    filtered_candidates = list(compress(candidates, mask))
+    filtered_scores = list(compress(scores, mask))
+    return filtered_candidates, filtered_scores

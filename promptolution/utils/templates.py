@@ -139,7 +139,7 @@ Include the name of the output classes in the prompt.
 The instruction was"""
 
 
-CAPO_DOWNSTREAM_TEMPLATE = """<instruction>
+DOWNSTREAM_TEMPLATE = """<instruction>
 
 <few_shots>
 

@@ -10,6 +10,7 @@ from openai.types.chat import ChatCompletion
 from typing import Any, Dict, List, Optional
 
 from promptolution.llms.base_llm import BaseLLM
+from promptolution.utils.config import ExperimentConfig
 from promptolution.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,7 +24,7 @@ class APILLM(BaseLLM):
         api_url: Optional[str] = None,
         model_id: Optional[str] = None,
         api_key: Optional[str] = None,
-        max_concurrent_calls: int = 16,
+        max_concurrent_calls: int = 32,
         max_tokens: int = 512,
         call_timeout_s: float = 30.0,  # per request
         gather_timeout_s: float = 120.0,  # whole batch
@@ -31,12 +32,9 @@ class APILLM(BaseLLM):
         retry_base_delay_s: float = 0.5,
         client_kwargs: Optional[Dict[str, Any]] = None,
         call_kwargs: Optional[Dict[str, Any]] = None,
+        config: Optional["ExperimentConfig"] = None,
     ) -> None:
         """Initialize the APILLM.
-
-        This class manages a dedicated asyncio event loop in a background thread,
-        reuses a single `AsyncOpenAI` client, and exposes a synchronous interface
-        for batch completions with timeouts and retries.
 
         Args:
             api_url (Optional[str]): Base URL for the API endpoint.
@@ -50,12 +48,8 @@ class APILLM(BaseLLM):
             retry_base_delay_s (float): Base delay in seconds for exponential backoff between retries.
             client_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed to `AsyncOpenAI(...)`.
             call_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed to `client.chat.completions.create(...)`.
+            config (Optional[ExperimentConfig]): Configuration for the LLM, overriding defaults.
         """
-        super().__init__(config=None)
-
-        if not model_id:
-            raise ValueError("model_id must be set")
-
         self.api_url = api_url
         self.model_id = model_id
         self.api_key = api_key
@@ -69,9 +63,12 @@ class APILLM(BaseLLM):
         self._client_kwargs: Dict[str, Any] = dict(client_kwargs or {})
         self._call_kwargs: Dict[str, Any] = dict(call_kwargs or {})
 
+        self.max_concurrent_calls = max_concurrent_calls
+        super().__init__(config=config)
+
         # --- persistent loop + semaphore ---
         self._loop = asyncio.new_event_loop()
-        self._sem = asyncio.Semaphore(max_concurrent_calls)
+        self._sem = asyncio.Semaphore(self.max_concurrent_calls)
 
         def _run_loop() -> None:
             """Run the background event loop forever."""
@@ -237,15 +234,9 @@ class APILLM(BaseLLM):
             TimeoutError: If waiting on the batch future exceeds `gather_timeout_s + 5.0`.
             Exception: Any underlying error from the async batch execution.
         """
-        if len(system_prompts) == 1 and len(prompts) > 1:
-            system_prompts = system_prompts * len(prompts)
-        elif len(system_prompts) != len(prompts):
-            system_prompts = [system_prompts[0] if system_prompts else "You are a helpful assistant."] * len(prompts)
-
         fut = self._submit(self._aget_batch(prompts, system_prompts))
         try:
             r = fut.result(timeout=self.gather_timeout_s + 5.0)
-            logger.debug(f"🔥APILLM: obtained {len(r)} responses from model.")
             return r
         except FuturesTimeout:
             fut.cancel()

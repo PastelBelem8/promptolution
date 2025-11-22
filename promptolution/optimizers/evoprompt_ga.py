@@ -3,9 +3,10 @@
 
 import numpy as np
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from promptolution.optimizers.base_optimizer import BaseOptimizer
+from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.llms.base_llm import BaseLLM
@@ -66,25 +67,20 @@ class EvoPromptGA(BaseOptimizer):
 
     def _pre_optimization_loop(self) -> None:
         self.scores = self.task.evaluate(self.prompts, self.predictor, return_agg_scores=True)
-        # sort prompts by score
-        self.prompts = [prompt for _, prompt in sorted(zip(self.scores, self.prompts), reverse=True)]
-        self.scores = sorted(self.scores, reverse=True)
+        self.prompts, self.scores = sort_prompts_by_scores(self.prompts, self.scores)
 
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         new_prompts = self._crossover(self.prompts, self.scores)
-        prompts = self.prompts + new_prompts
-
         new_scores = self.task.evaluate(new_prompts, self.predictor, return_agg_scores=True)
 
+        prompts = self.prompts + new_prompts
         scores = self.scores + new_scores
 
-        # sort scores and prompts
-        self.prompts = [prompt for _, prompt in sorted(zip(scores, prompts), reverse=True)][: len(self.prompts)]
-        self.scores = sorted(scores, reverse=True)[: len(self.prompts)]
+        self.prompts, self.scores = sort_prompts_by_scores(prompts, scores, top_k=len(self.prompts))
 
         return self.prompts
 
-    def _crossover(self, prompts: List[str], scores: List[float]) -> List[str]:
+    def _crossover(self, prompts: List[Prompt], scores: List[float]) -> List[Prompt]:
         """Perform crossover operation to generate new child prompts.
 
         This method selects parent prompts based on the chosen selection mode,
@@ -123,10 +119,12 @@ class EvoPromptGA(BaseOptimizer):
                 parent_1 = group_1[np.argmax([self.scores[self.prompts.index(p)] for p in group_1])]
                 parent_2 = group_2[np.argmax([self.scores[self.prompts.index(p)] for p in group_2])]
 
+            parent_1, parent_2 = parent_1.construct_prompt(), parent_2.construct_prompt()
             meta_prompt = self.prompt_template.replace("<prompt1>", parent_1).replace("<prompt2>", parent_2)
             meta_prompts.append(meta_prompt)
 
-        child_prompts = self.meta_llm.get_response(meta_prompts)
-        child_prompts = extract_from_tag(child_prompts, "<prompt>", "</prompt>")
+        child_instructions = self.meta_llm.get_response(meta_prompts)
+        child_instructions = extract_from_tag(child_instructions, "<prompt>", "</prompt>")
+        child_prompts = [Prompt(p) for p in child_instructions]
 
         return child_prompts

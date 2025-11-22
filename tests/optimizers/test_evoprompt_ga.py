@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from promptolution.optimizers import EvoPromptGA
+from promptolution.utils.prompt import Prompt
 
 
 def test_evoprompt_ga_initialization(mock_meta_llm, initial_prompts, mock_task, experiment_config, mock_predictor):
@@ -18,7 +19,7 @@ def test_evoprompt_ga_initialization(mock_meta_llm, initial_prompts, mock_task, 
     # Verify only essential properties
     assert optimizer.prompt_template == "Combine these prompts to create a better one: <prompt1> and <prompt2>."
     assert optimizer.selection_mode == "random"
-    assert optimizer.prompts == initial_prompts
+    assert [p.instruction for p in optimizer.prompts] == initial_prompts
 
 
 def test_evoprompt_ga_crossover(mock_meta_llm, initial_prompts, mock_task, experiment_config, mock_predictor):
@@ -34,7 +35,7 @@ def test_evoprompt_ga_crossover(mock_meta_llm, initial_prompts, mock_task, exper
     )
 
     # Set up state for testing
-    optimizer.prompts = initial_prompts
+    optimizer.prompts = [Prompt(p) for p in initial_prompts]
     optimizer.scores = [0.8, 0.7, 0.6, 0.5, 0.4]
 
     # Control randomness
@@ -63,8 +64,8 @@ def test_evoprompt_ga_step(mock_meta_llm, initial_prompts, mock_task, experiment
     )
 
     # Set up state for testing
-    optimizer.prompts = initial_prompts
-    optimizer.scores = [0.8, 0.7, 0.6, 0.5, 0.4]
+    optimizer.prompts = [Prompt(p) for p in initial_prompts]
+    optimizer.scores = [0.8, 0.7, 0.6, 0.5]
 
     # Control randomness
     with patch("numpy.random.choice") as mock_choice:

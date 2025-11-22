@@ -12,6 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.callbacks import BaseCallback
 
 from promptolution.utils.logging import get_logger
+from promptolution.utils.prompt import Prompt
 
 logger = get_logger(__name__)
 
@@ -49,7 +50,7 @@ class BaseOptimizer(ABC):
             config (ExperimentConfig, optional): Configuration for the optimizer, overriding defaults.
         """
         # Set up optimizer state
-        self.prompts: List[str] = initial_prompts or []
+        self.prompts: List[Prompt] = [Prompt(p) for p in initial_prompts] if initial_prompts else []
         self.task = task
         self.callbacks: List["BaseCallback"] = callbacks or []
         self.predictor = predictor
@@ -60,7 +61,7 @@ class BaseOptimizer(ABC):
 
         self.config = config
 
-    def optimize(self, n_steps: int) -> List[str]:
+    def optimize(self, n_steps: int) -> List[Prompt]:
         """Perform the optimization process.
 
         This method should be implemented by concrete optimizer classes to define
@@ -104,7 +105,7 @@ class BaseOptimizer(ABC):
         pass
 
     @abstractmethod
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         """Perform a single optimization step.
 
         This method should be implemented by concrete optimizer classes to define

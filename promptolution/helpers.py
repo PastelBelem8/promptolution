@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Callable, List, Literal, Optional
 
 from promptolution.tasks.judge_tasks import JudgeTask
 from promptolution.tasks.reward_tasks import RewardTask
+from promptolution.utils.prompt import Prompt
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.exemplar_selectors.base_exemplar_selector import BaseExemplarSelector
@@ -28,7 +29,10 @@ from promptolution.optimizers.capo import CAPO
 from promptolution.optimizers.evoprompt_de import EvoPromptDE
 from promptolution.optimizers.evoprompt_ga import EvoPromptGA
 from promptolution.optimizers.opro import OPRO
-from promptolution.optimizers.templates import (
+from promptolution.predictors.classifier import FirstOccurrenceClassifier, MarkerBasedClassifier
+from promptolution.tasks.classification_tasks import ClassificationTask
+from promptolution.utils.logging import get_logger
+from promptolution.utils.templates import (
     CAPO_CROSSOVER_TEMPLATE,
     CAPO_MUTATION_TEMPLATE,
     EVOPROMPT_DE_TEMPLATE,
@@ -38,9 +42,6 @@ from promptolution.optimizers.templates import (
     OPRO_TEMPLATE,
     OPRO_TEMPLATE_TD,
 )
-from promptolution.predictors.classifier import FirstOccurrenceClassifier, MarkerBasedClassifier
-from promptolution.tasks.classification_tasks import ClassificationTask
-from promptolution.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -59,12 +60,13 @@ def run_experiment(df: pd.DataFrame, config: "ExperimentConfig") -> pd.DataFrame
     train_df = df.sample(frac=0.8, random_state=42)
     test_df = df.drop(train_df.index)
     prompts = run_optimization(train_df, config)
-    df_prompt_scores = run_evaluation(test_df, config, prompts)
+    prompts_str = [p.construct_prompt() for p in prompts]
+    df_prompt_scores = run_evaluation(test_df, config, prompts_str)
 
     return df_prompt_scores
 
 
-def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
+def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[Prompt]:
     """Run the optimization phase of the experiment.
 
     Configures all LLMs (downstream, meta, and judge) to use
@@ -74,7 +76,7 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
         config (Config): Configuration object for the experiment.
 
     Returns:
-        List[str]: The optimized list of prompts.
+        List[Prompt]: The optimized list of prompts.
     """
     llm = get_llm(config=config)
     predictor = get_predictor(llm, config=config)
@@ -97,7 +99,6 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
     if hasattr(config, "prepend_exemplars") and config.prepend_exemplars:
         selector = get_exemplar_selector(config.exemplar_selector, task, predictor)
         prompts = [selector.select_exemplars(p, n_examples=config.n_exemplars) for p in prompts]
-
     return prompts
 
 

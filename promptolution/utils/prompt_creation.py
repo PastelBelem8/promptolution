@@ -11,12 +11,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.llms.base_llm import BaseLLM
     from promptolution.tasks.base_task import BaseTask
 
-from promptolution.optimizers.templates import (
+from promptolution.tasks.classification_tasks import ClassificationTask
+from promptolution.utils.templates import (
     PROMPT_CREATION_TEMPLATE,
     PROMPT_CREATION_TEMPLATE_TD,
     PROMPT_VARIATION_TEMPLATE,
 )
-from promptolution.tasks.classification_tasks import ClassificationTask
 
 
 def create_prompt_variation(

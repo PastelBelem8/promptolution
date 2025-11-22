@@ -1,4 +1,4 @@
-import numpy as np
+from promptolution.utils.prompt import Prompt
 
 
 def test_reward_task_initialization(mock_reward_task, simple_reward_function):
@@ -22,7 +22,7 @@ def test_reward_task_initialization_no_x_column(mock_reward_task_no_x_column, si
 
 def test_reward_task_evaluate_with_return_seq(mock_reward_task, mock_predictor):
     """Test the evaluate method with return_seq=True for RewardTask."""
-    prompts = ["Generate a short text:"]
+    prompts = [Prompt("Generate a short text:")]
 
     scores, seqs = mock_reward_task.evaluate(prompts, mock_predictor, return_seq=True, return_agg_scores=False)
 
