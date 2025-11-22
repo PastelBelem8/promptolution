@@ -165,7 +165,7 @@ class CAPO(BaseOptimizer):
         # Check which predictions are correct and get a single one per example
         for j in range(num_examples):
             # Process and clean up the generated sequences
-            seqs[j] = seqs[j].replace(sample_inputs[j], "").strip()
+            seqs[j] = seqs[j].replace(sample_inputs[j], "", 1).strip()
             # Check if the prediction is correct and add reasoning if so
             if preds[j] == sample_targets[j] or not self.check_fs_accuracy:
                 few_shots[j] = CAPO_FEWSHOT_TEMPLATE.replace("<input>", sample_inputs[j]).replace("<output>", seqs[j])
