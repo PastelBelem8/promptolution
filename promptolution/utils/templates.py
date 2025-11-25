@@ -138,6 +138,12 @@ Include the name of the output classes in the prompt.
 
 The instruction was"""
 
+PROMPT_CREATION_TEMPLATE_FROM_TASK_DESCRIPTION = """Please create a prompt for the following task, not using any placeholders, working universally, for any datapoint-specific instructions following each system prompt.
+
+Task: <task_desc>
+
+Explicitly state this expected format as part of the prompts."""
+
 
 DOWNSTREAM_TEMPLATE = "<instruction>"
 

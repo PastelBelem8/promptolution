@@ -9,7 +9,7 @@ from datasets import load_dataset
 
 from promptolution.llms import APILLM
 from promptolution.optimizers import EVOPROMPT_GA_TEMPLATE, EvoPromptGA
-from promptolution.predictors import MarkerBasedClassifier
+from promptolution.predictors import MarkerBasedPredictor
 from promptolution.tasks import ClassificationTask
 from promptolution.utils import FileOutputCallback, LoggerCallback, TokenCountCallback
 
@@ -60,7 +60,7 @@ llm = APILLM(
 downstream_llm = llm
 meta_llm = llm
 
-predictor = MarkerBasedClassifier(downstream_llm, classes=task.classes)
+predictor = MarkerBasedPredictor(downstream_llm, classes=task.classes)
 
 optimizer = EvoPromptGA(
     task=task,

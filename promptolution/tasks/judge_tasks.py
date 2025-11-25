@@ -132,7 +132,7 @@ class JudgeTask(BaseTask):
         judge_responses = self.judge_llm.get_response(prompts)
         scores_str = extract_from_tag(judge_responses, "<final_score>", "</final_score>")
         scores = []
-        for score_str, judge_response in zip(scores_str, judge_responses):
+        for score_str in scores_str:
             try:
                 # only numeric chars, - or . are allowed
                 score_str = "".join(filter(lambda c: c.isdigit() or c in "-.", score_str))

@@ -28,7 +28,8 @@ from promptolution.optimizers.capo import CAPO
 from promptolution.optimizers.evoprompt_de import EvoPromptDE
 from promptolution.optimizers.evoprompt_ga import EvoPromptGA
 from promptolution.optimizers.opro import OPRO
-from promptolution.predictors.classifier import FirstOccurrenceClassifier, MarkerBasedClassifier
+from promptolution.predictors.first_occurence_predictor import FirstOccurrencePredictor
+from promptolution.predictors.maker_based_predictor import MarkerBasedPredictor
 from promptolution.tasks.classification_tasks import ClassificationTask
 from promptolution.utils.logging import get_logger
 from promptolution.utils.templates import (
@@ -272,23 +273,23 @@ def get_predictor(downstream_llm=None, type: "PredictorType" = "marker", *args, 
     """Factory function to create and return a predictor instance.
 
     This function supports three types of predictors:
-    1. FirstOccurrenceClassifier: A predictor that classifies based on first occurrence of the label.
-    2. MarkerBasedClassifier: A predictor that classifies based on a marker.
+    1. FirstOccurrencePredictor: A predictor that classifies based on first occurrence of the label.
+    2. MarkerBasedPredictor: A predictor that classifies based on a marker.
 
     Args:
         downstream_llm: The language model to use for prediction.
         type (Literal["first_occurrence", "marker"]): The type of predictor to create:
-                    - "first_occurrence" for FirstOccurrenceClassifier
-                    - "marker" (default) for MarkerBasedClassifier
+                    - "first_occurrence" for FirstOccurrencePredictor
+                    - "marker" (default) for MarkerBasedPredictor
         *args: Variable length argument list passed to the predictor constructor.
         **kwargs: Arbitrary keyword arguments passed to the predictor constructor.
 
     Returns:
-        An instance of FirstOccurrenceClassifier or MarkerBasedClassifier.
+        An instance of FirstOccurrencePredictor or MarkerBasedPredictor.
     """
     if type == "first_occurrence":
-        return FirstOccurrenceClassifier(downstream_llm, *args, **kwargs)
+        return FirstOccurrencePredictor(downstream_llm, *args, **kwargs)
     elif type == "marker":
-        return MarkerBasedClassifier(downstream_llm, *args, **kwargs)
+        return MarkerBasedPredictor(downstream_llm, *args, **kwargs)
     else:
         raise ValueError(f"Invalid predictor type: '{type}'")

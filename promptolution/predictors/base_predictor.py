@@ -10,6 +10,7 @@ from promptolution.llms.base_llm import BaseLLM
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.config import ExperimentConfig
 
+
 PredictorType = Literal["first_occurrence", "marker"]
 
 

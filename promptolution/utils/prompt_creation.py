@@ -14,6 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from promptolution.tasks.classification_tasks import ClassificationTask
 from promptolution.utils.templates import (
     PROMPT_CREATION_TEMPLATE,
+    PROMPT_CREATION_TEMPLATE_FROM_TASK_DESCRIPTION,
     PROMPT_CREATION_TEMPLATE_TD,
     PROMPT_VARIATION_TEMPLATE,
 )
@@ -50,7 +51,7 @@ def create_prompts_from_samples(
     llm: "BaseLLM",
     meta_prompt: Optional[str] = None,
     n_samples: int = 3,
-    task_description: Optional[str] = None,
+    task_description: str = None,
     n_prompts: int = 1,
     get_uniform_labels: bool = False,
 ) -> List[str]:
@@ -115,6 +116,36 @@ def create_prompts_from_samples(
         meta_prompt = meta_prompt_template.replace("<input_output_pairs>", examples)
         meta_prompts.append(meta_prompt)
 
+    prompts = llm.get_response(meta_prompts)
+    prompts = extract_from_tag(prompts, "<prompt>", "</prompt>")
+
+    return prompts
+
+
+def create_prompts_from_task_description(
+    task_description: str,
+    llm: "BaseLLM",
+    meta_prompt: Optional[str] = None,
+    n_prompts: int = 1,
+) -> List[str]:
+    """Generate a set of prompts from a given task description.
+
+    Args:
+        task_description (str): The description of the task to generate prompts for.
+        llm (BaseLLM): The language model to use for generating the prompts.
+        meta_prompt (str): The meta prompt to use for generating the prompts.
+        If None, a default meta prompt is used.
+        n_prompts (int): The number of prompts to generate.
+
+    Returns:
+        List[str]: A list of generated prompts.
+    """
+    if meta_prompt is None:
+        meta_prompt = PROMPT_CREATION_TEMPLATE_FROM_TASK_DESCRIPTION
+
+    meta_prompt = meta_prompt.replace("<task_desc>", task_description)
+
+    meta_prompts = [meta_prompt for _ in range(n_prompts)]
     prompts = llm.get_response(meta_prompts)
     prompts = extract_from_tag(prompts, "<prompt>", "</prompt>")
 

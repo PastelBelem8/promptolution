@@ -8,8 +8,6 @@ import pandas as pd
 
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
-from promptolution.utils.formatting import extract_from_tag
-
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.callbacks import BaseCallback
     from promptolution.llms.base_llm import BaseLLM
@@ -19,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.test_statistics import TestStatistics
 
 from promptolution.optimizers.base_optimizer import BaseOptimizer
+from promptolution.utils.formatting import extract_from_tag
 from promptolution.utils.logging import get_logger
 from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
 from promptolution.utils.templates import CAPO_CROSSOVER_TEMPLATE, CAPO_FEWSHOT_TEMPLATE, CAPO_MUTATION_TEMPLATE
