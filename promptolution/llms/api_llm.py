@@ -26,10 +26,10 @@ class APILLM(BaseLLM):
         api_key: Optional[str] = None,
         max_concurrent_calls: int = 32,
         max_tokens: int = 512,
-        call_timeout_s: float = 30.0,  # per request
-        gather_timeout_s: float = 120.0,  # whole batch
-        max_retries: int = 2,
-        retry_base_delay_s: float = 0.5,
+        call_timeout_s: float = 200.0,  # per request
+        gather_timeout_s: float = 500.0,  # whole batch
+        max_retries: int = 5,
+        retry_base_delay_s: float = 1,
         client_kwargs: Optional[Dict[str, Any]] = None,
         call_kwargs: Optional[Dict[str, Any]] = None,
         config: Optional["ExperimentConfig"] = None,
@@ -146,12 +146,8 @@ class APILLM(BaseLLM):
                 last_err = e
                 if attempt < self.max_retries:
                     delay = self.retry_base_delay_s * (2**attempt)
-                    logger.warning(
-                        "LLM call failed (%d/%d): %s — retrying in %.2fs",
-                        attempt + 1,
-                        self.max_retries + 1,
-                        e,
-                        delay,
+                    logger.error(
+                        f"LLM call failed ({attempt + 1}/{self.max_retries + 1}): — retrying in {delay}s", exc_info=e
                     )
                     await asyncio.sleep(delay)
         assert last_err is not None
