@@ -142,9 +142,9 @@ PROMPT_CREATION_TEMPLATE_FROM_TASK_DESCRIPTION = """Please create diverse system
 
 Task: <task_desc>
 
-Explicitly state the expected format above by repeating its exact character sequence verbatim in every prompt.
+Explicitly state the expected format above by repeating its exact character sequence verbatim in every prompt if applicable.
 
-Create overall <n_prompts> prompts within quotes as an array. Do not response with anything else. Start the array with [ and end with ]. Separate each prompt by a comma."""
+Create overall <n_prompts> prompts within json format, meaning strings inside quotes as an array. Do not response with anything else. Start the array with [ and end with ]. Separate each prompt by a comma, and do not use quotation marks inside the prompts."""
 
 
 DOWNSTREAM_TEMPLATE = "<instruction>"
