@@ -25,7 +25,7 @@ class APILLM(BaseLLM):
         model_id: Optional[str] = None,
         api_key: Optional[str] = None,
         max_concurrent_calls: int = 32,
-        max_tokens: int = 512,
+        max_tokens: int = 4096,
         call_timeout_s: float = 200.0,  # per request
         gather_timeout_s: float = 500.0,  # whole batch
         max_retries: int = 5,
