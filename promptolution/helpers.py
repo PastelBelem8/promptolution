@@ -76,7 +76,6 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[Promp
         initial_prompts = create_prompts_from_task_description(
             task_description=config.task_description,
             llm=llm,
-            n_prompts=config.n_initial_prompts,
         )
         config.prompts = [Prompt(p) for p in initial_prompts]
 
