@@ -1,5 +1,7 @@
 import numpy as np
 
+from promptolution.utils.prompt import Prompt
+
 
 def test_judge_task_initialization(mock_judge_task_with_y, mock_judge_llm):
     """Test that JudgeTask initializes correctly with ground truth."""
@@ -50,6 +52,7 @@ def test_judge_task_construct_judge_prompt_without_ground_truth(mock_judge_task_
 def test_judge_task_evaluate_with_ground_truth(mock_judge_task_with_y, mock_predictor, mock_judge_llm):
     """Test the evaluate method of JudgeTask with ground truth and full evaluation."""
     prompts = ["Rate the sentiment:", "What is the sentiment?", "How would you classify this?"]
+    prompts = [Prompt(p) for p in prompts]
 
     mock_predictor.call_history = []
     mock_judge_llm.call_history = []
@@ -72,6 +75,7 @@ def test_judge_task_evaluate_with_ground_truth(mock_judge_task_with_y, mock_pred
 def test_judge_task_evaluate_no_ground_truth(mock_judge_task_no_y, mock_predictor, mock_judge_llm):
     """Test the evaluate method of JudgeTask without a y_column (no ground truth)."""
     prompts = ["Tell a funny joke:", "Make me laugh:", "What's a good joke?"]
+    prompts = [Prompt(p) for p in prompts]
 
     mock_predictor.call_history = []
     mock_judge_llm.call_history = []
@@ -86,6 +90,8 @@ def test_judge_task_evaluate_no_ground_truth(mock_judge_task_no_y, mock_predicto
 def test_judge_task_evaluate_with_return_seq(mock_judge_task_with_y, mock_predictor):
     """Test the evaluate method with return_seq=True for JudgeTask."""
     prompts = ["Evaluate this text:", "What is the sentiment?", "How would you classify this?"]
+    prompts = [Prompt(p) for p in prompts]
+
     scores, seqs = mock_judge_task_with_y.evaluate(prompts, mock_predictor, return_seq=True, return_agg_scores=False)
 
     assert len(scores) == 3

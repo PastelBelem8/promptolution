@@ -3,6 +3,7 @@ import pytest
 from sklearn.metrics import accuracy_score
 
 from promptolution.tasks import ClassificationTask
+from promptolution.utils.prompt import Prompt
 
 
 def test_classification_task_initialization(mock_df):
@@ -19,7 +20,7 @@ def test_classification_task_initialization(mock_df):
 
 def test_task_evaluate(mock_classification_task_with_subsampling, mock_predictor):
     """Test the evaluate method of ClassificationTask."""
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
     scores = mock_classification_task_with_subsampling.evaluate(prompts, mock_predictor)
 
     assert isinstance(scores, list)
@@ -27,6 +28,8 @@ def test_task_evaluate(mock_classification_task_with_subsampling, mock_predictor
     assert 0 <= scores[0] <= 1
 
     prompts = ["Classify sentiment:", "Rate the text:"]
+    prompts = [Prompt(p) for p in prompts]
+
     scores = mock_classification_task_with_subsampling.evaluate(prompts, mock_predictor)
 
     assert len(scores) == 2
@@ -35,7 +38,7 @@ def test_task_evaluate(mock_classification_task_with_subsampling, mock_predictor
 
 def test_task_evaluate_with_subsampling(mock_classification_task_with_subsampling, mock_predictor):
     """Test the evaluate method with subsampling."""
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
 
     scores = mock_classification_task_with_subsampling.evaluate(
         prompts,
@@ -62,7 +65,7 @@ def test_task_evaluate_with_subsampling(mock_classification_task_with_subsamplin
 
 def test_task_evaluate_with_return_seq(mock_classification_task_with_subsampling, mock_predictor):
     """Test the evaluate method with return_seq=True."""
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
 
     scores, seqs = mock_classification_task_with_subsampling.evaluate(
         prompts, mock_predictor, return_seq=True, return_agg_scores=False
@@ -79,7 +82,7 @@ def test_task_evaluate_with_system_prompts(
 ):
     """Test the evaluate method with system prompts."""
 
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
     system_prompts = ["Be concise"]
 
     scores = mock_classification_task_with_subsampling.evaluate(
@@ -126,7 +129,7 @@ def test_classification_task_evaluate_random_block(mock_df, mock_predictor):
         eval_strategy="random_block",
         seed=42,
     )
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
 
     evaluated_x_sets = []
     for _ in range(5):
@@ -151,7 +154,7 @@ def test_classification_task_evaluate_sequential_block(mock_df, mock_predictor):
         eval_strategy="sequential_block",
         seed=42,
     )
-    prompts = ["Classify sentiment:"]
+    prompts = [Prompt("Classify sentiment:")]
 
     task.reset_block_idx()
     assert task.block_idx == 0

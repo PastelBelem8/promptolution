@@ -8,7 +8,7 @@ from datasets import load_dataset
 
 from promptolution.llms import APILLM
 from promptolution.optimizers import CAPO
-from promptolution.predictors import MarkerBasedClassifier
+from promptolution.predictors import MarkerBasedPredictor
 from promptolution.tasks import ClassificationTask
 from promptolution.utils import FileOutputCallback, LoggerCallback, TokenCountCallback
 
@@ -56,7 +56,7 @@ llm = APILLM(model_id=args.model_id, api_key=args.api_key, api_url=args.api_url)
 downstream_llm = llm
 meta_llm = llm
 
-predictor = MarkerBasedClassifier(downstream_llm, classes=None)
+predictor = MarkerBasedPredictor(downstream_llm, classes=None)
 
 optimizer = CAPO(
     task=task,

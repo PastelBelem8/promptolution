@@ -3,11 +3,12 @@
 
 import numpy as np
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from promptolution.optimizers.base_optimizer import BaseOptimizer
-from promptolution.optimizers.templates import OPRO_TEMPLATE
 from promptolution.utils.formatting import extract_from_tag
+from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
+from promptolution.utils.templates import OPRO_TEMPLATE
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.llms.base_llm import BaseLLM
@@ -55,13 +56,13 @@ class OPRO(BaseOptimizer):
             config: "ExperimentConfig" overwriting default parameters
         """
         self.meta_llm = meta_llm
-        self.meta_prompt_template = prompt_template or OPRO_TEMPLATE
         self.max_num_instructions = max_num_instructions
         self.num_instructions_per_step = num_instructions_per_step
         self.num_few_shots = num_few_shots
         super().__init__(
             predictor=predictor, task=task, initial_prompts=initial_prompts, callbacks=callbacks, config=config
         )
+        self.meta_prompt_template = self._initialize_meta_template(prompt_template or OPRO_TEMPLATE)
 
     def _sample_examples(self) -> str:
         """Sample few-shot examples from the dataset.
@@ -87,7 +88,7 @@ class OPRO(BaseOptimizer):
 
         return "".join([f"text:\n{prompt}\nscore: {int(100 * round(score, 2))}\n\n" for prompt, score in sorted_pairs])
 
-    def _add_prompt_and_score(self, prompt: str, score: float) -> None:
+    def _add_prompt_and_score(self, prompt: Prompt, score: float) -> None:
         """Add a prompt and its score to the lists, maintaining max length.
 
         Args:
@@ -101,17 +102,15 @@ class OPRO(BaseOptimizer):
         self.scores.append(score)
 
         # Keep only the top-performing prompts if we exceed the maximum number of instructions
-        keep_indices = np.argsort(self.scores)[-self.max_num_instructions :]
-        self.prompts = [self.prompts[i] for i in keep_indices]
-        self.scores = [self.scores[i] for i in keep_indices]
+        self.prompts, self.scores = sort_prompts_by_scores(self.prompts, self.scores, top_k=self.max_num_instructions)
 
     def _pre_optimization_loop(self):
-        self.scores = list(self.task.evaluate(self.prompts, self.predictor))
+        self.scores = self.task.evaluate(self.prompts, self.predictor)
         self.meta_prompt = self.meta_prompt_template.replace("<instructions>", self._format_instructions()).replace(
             "<examples>", self._sample_examples()
         )
 
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         duplicate_prompts = 0
         for _ in range(self.num_instructions_per_step):
             generation_seed = np.random.randint(0, int(1e9))
@@ -119,7 +118,8 @@ class OPRO(BaseOptimizer):
 
             response = self.meta_llm.get_response([self.meta_prompt])[0]
 
-            prompt = extract_from_tag(response, "<prompt>", "</prompt>")
+            instruction = extract_from_tag(response, "<prompt>", "</prompt>")
+            prompt = Prompt(instruction)
 
             if prompt in self.prompts:
                 duplicate_prompts += 1

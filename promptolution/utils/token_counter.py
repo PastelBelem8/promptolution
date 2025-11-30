@@ -27,7 +27,7 @@ def get_token_counter(llm: "BaseLLM") -> Callable[[str], int]:
 
     """
     if llm.tokenizer is not None:
-        tokenizer: PreTrainedTokenizer = llm.tokenizer
+        tokenizer: "PreTrainedTokenizer" = llm.tokenizer
         return lambda x: len(tokenizer.encode(x))
     else:
         logger.warning("⚠️ The LLM does not have a tokenizer. Using simple token count.")

@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 
 from typing import TYPE_CHECKING, Optional
 
+from promptolution.utils.prompt import Prompt
+
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.predictors.base_predictor import BasePredictor
     from promptolution.tasks.base_task import BaseTask
@@ -33,11 +35,11 @@ class BaseExemplarSelector(ABC):
             config.apply_to(self)
 
     @abstractmethod
-    def select_exemplars(self, prompt: str, n_examples: int = 5) -> str:
+    def select_exemplars(self, prompt: Prompt, n_examples: int = 5) -> Prompt:
         """Select exemplars based on the given prompt.
 
         Args:
-            prompt (str): The input prompt to base the exemplar selection on.
+            prompt (Prompt): The input prompt to base the exemplar selection on.
             n_examples (int, optional): The number of exemplars to select. Defaults to 5.
 
         Returns:

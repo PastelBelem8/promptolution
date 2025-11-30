@@ -1,10 +1,10 @@
 """Module for running language models locally using the vLLM library."""
 
-
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.config import ExperimentConfig
+    from transformers import PreTrainedTokenizer
 
 
 from promptolution.llms.base_llm import BaseLLM
@@ -14,7 +14,6 @@ logger = get_logger(__name__)
 
 try:
     from transformers import AutoTokenizer  # type: ignore
-    from transformers import PreTrainedTokenizer
     from vllm import LLM, SamplingParams
 
     imports_successful = True
@@ -38,7 +37,7 @@ class VLLM(BaseLLM):
         update_token_count: Update the token count based on the given inputs and outputs.
     """
 
-    tokenizer: PreTrainedTokenizer
+    tokenizer: "PreTrainedTokenizer"
 
     def __init__(
         self,

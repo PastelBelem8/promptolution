@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import numpy as np
 import pandas as pd
 
 from typing import List
@@ -39,7 +38,7 @@ class MockTask(BaseTask):
         self.x_column = "x"
         self.y_column = "y"
         # Default attributes similar to ClassificationTask
-        self.description = "Mock classification task"
+        self.task_description = "Mock classification task"
         self.classes = ["positive", "neutral", "negative"]
         self.initial_prompts = ["Classify:", "Determine:"]
         self.n_blocks = 10

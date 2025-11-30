@@ -1,12 +1,14 @@
 """Module for EvoPromptDE optimizer."""
 
 
-import numpy as np
+import random
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from promptolution.optimizers.base_optimizer import BaseOptimizer
 from promptolution.utils.formatting import extract_from_tag
+from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
+from promptolution.utils.templates import EVOPROMPT_DE_TEMPLATE_TD
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.llms.base_llm import BaseLLM
@@ -42,27 +44,26 @@ class EvoPromptDE(BaseOptimizer):
         self,
         predictor: "BasePredictor",
         task: "BaseTask",
-        prompt_template: str,
         meta_llm: "BaseLLM",
         initial_prompts: Optional[List[str]] = None,
+        prompt_template: Optional[str] = None,
         donor_random: bool = False,
         callbacks: Optional[List["BaseCallback"]] = None,
         config: Optional["ExperimentConfig"] = None,
     ) -> None:
         """Initialize the EvoPromptDE optimizer."""
-        self.prompt_template = prompt_template
         self.donor_random = donor_random
         self.meta_llm = meta_llm
         super().__init__(
             predictor=predictor, task=task, initial_prompts=initial_prompts, callbacks=callbacks, config=config
         )
+        self.prompt_template = self._initialize_meta_template(prompt_template or EVOPROMPT_DE_TEMPLATE_TD)
 
     def _pre_optimization_loop(self) -> None:
         self.scores = self.task.evaluate(self.prompts, self.predictor, return_agg_scores=True)
-        self.prompts = [prompt for _, prompt in sorted(zip(self.scores, self.prompts), reverse=True)]
-        self.scores = sorted(self.scores, reverse=True)
+        self.prompts, self.scores = sort_prompts_by_scores(self.prompts, self.scores)
 
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         """Perform the optimization process for a specified number of steps.
 
         This method iteratively improves the prompts using a differential evolution strategy.
@@ -71,7 +72,7 @@ class EvoPromptDE(BaseOptimizer):
 
 
         Returns:
-            List[str]: The optimized list of prompts after all steps.
+            List[Prompt]: The optimized list of prompts after all steps.
         """
         cur_best = self.prompts[0]
         meta_prompts = []
@@ -80,22 +81,23 @@ class EvoPromptDE(BaseOptimizer):
             old_prompt = self.prompts[i]
 
             candidates = [prompt for prompt in self.prompts if prompt != old_prompt]
-            a, b, c = np.random.choice(candidates, size=3, replace=False)
+            a, b, c = random.sample(candidates, k=3)
 
             if not self.donor_random:
                 c = cur_best
 
             meta_prompt = (
-                self.prompt_template.replace("<prompt0>", old_prompt)
-                .replace("<prompt1>", a)
-                .replace("<prompt2>", b)
-                .replace("<prompt3>", c)
+                self.prompt_template.replace("<prompt0>", old_prompt.construct_prompt())
+                .replace("<prompt1>", a.construct_prompt())
+                .replace("<prompt2>", b.construct_prompt())
+                .replace("<prompt3>", c.construct_prompt())
             )
 
             meta_prompts.append(meta_prompt)
 
-        child_prompts = self.meta_llm.get_response(meta_prompts)
-        child_prompts = extract_from_tag(child_prompts, "<prompt>", "</prompt>")
+        child_instructions = self.meta_llm.get_response(meta_prompts)
+        child_instructions = extract_from_tag(child_instructions, "<prompt>", "</prompt>")
+        child_prompts = [Prompt(p) for p in child_instructions]
 
         child_scores = self.task.evaluate(child_prompts, self.predictor, return_agg_scores=True)
 
@@ -104,7 +106,6 @@ class EvoPromptDE(BaseOptimizer):
                 self.prompts[i] = child_prompts[i]
                 self.scores[i] = child_scores[i]
 
-        self.prompts = [prompt for _, prompt in sorted(zip(self.scores, self.prompts), reverse=True)]
-        self.scores = sorted(self.scores, reverse=True)
+        self.prompts, self.scores = sort_prompts_by_scores(self.prompts, self.scores)
 
         return self.prompts

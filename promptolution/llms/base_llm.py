@@ -9,8 +9,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.config import ExperimentConfig
     from transformers import PreTrainedTokenizer
 
-from promptolution.optimizers.templates import DEFAULT_SYS_PROMPT
 from promptolution.utils.logging import get_logger
+from promptolution.utils.templates import DEFAULT_SYS_PROMPT
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ class BaseLLM(ABC):
         # Initialize token counters
         self.input_token_count = 0
         self.output_token_count = 0
-        self.tokenizer: Optional[PreTrainedTokenizer] = None
+        self.tokenizer: Optional["PreTrainedTokenizer"] = None
 
     def get_token_count(self) -> Dict[str, int]:
         """Get the current count of input and output tokens.

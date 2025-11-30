@@ -1,6 +1,5 @@
 """Base module for optimizers in the promptolution library."""
 
-
 from abc import ABC, abstractmethod
 
 from typing import TYPE_CHECKING, List, Literal, Optional
@@ -12,6 +11,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from promptolution.utils.callbacks import BaseCallback
 
 from promptolution.utils.logging import get_logger
+from promptolution.utils.prompt import Prompt
 
 logger = get_logger(__name__)
 
@@ -49,7 +49,7 @@ class BaseOptimizer(ABC):
             config (ExperimentConfig, optional): Configuration for the optimizer, overriding defaults.
         """
         # Set up optimizer state
-        self.prompts: List[str] = initial_prompts or []
+        self.prompts: List[Prompt] = [Prompt(p) for p in initial_prompts] if initial_prompts else []
         self.task = task
         self.callbacks: List["BaseCallback"] = callbacks or []
         self.predictor = predictor
@@ -60,7 +60,7 @@ class BaseOptimizer(ABC):
 
         self.config = config
 
-    def optimize(self, n_steps: int) -> List[str]:
+    def optimize(self, n_steps: int) -> List[Prompt]:
         """Perform the optimization process.
 
         This method should be implemented by concrete optimizer classes to define
@@ -82,8 +82,7 @@ class BaseOptimizer(ABC):
                 self.prompts = self._step()
             except Exception as e:
                 # exit training loop and gracefully fail
-                logger.error(f"⛔ Error during optimization step: {e}")
-                logger.error("⚠️ Exiting optimization loop.")
+                logger.error("⛔ Error during optimization step! ⚠️ Exiting optimization loop.", exc_info=e)
                 break
 
             # Callbacks at the end of each step
@@ -105,7 +104,7 @@ class BaseOptimizer(ABC):
         pass
 
     @abstractmethod
-    def _step(self) -> List[str]:
+    def _step(self) -> List[Prompt]:
         """Perform a single optimization step.
 
         This method should be implemented by concrete optimizer classes to define
@@ -129,3 +128,15 @@ class BaseOptimizer(ABC):
         """Call all registered callbacks at the end of the entire optimization process."""
         for callback in self.callbacks:
             callback.on_train_end(self)
+
+    def _initialize_meta_template(self, template: str) -> str:
+        task_description = getattr(self.task, "task_description")
+        extraction_description = getattr(self.predictor, "extraction_description")
+        if self.config is not None and getattr(self.config, "task_description") is not None:
+            task_description = self.config.task_description
+        if task_description is None:
+            logger.warning("Task description is not provided. Please make sure to include relevant task details.")
+            task_description = ""
+        if extraction_description is not None:
+            task_description += "\n" + extraction_description
+        return template.replace("<task_desc>", task_description)

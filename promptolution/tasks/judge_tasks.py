@@ -1,16 +1,15 @@
 """Module for judge tasks."""
 
-import numpy as np
 import pandas as pd
 
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Optional
 
-from promptolution.llms.base_llm import BaseLLM
 from promptolution.tasks.base_task import BaseTask
 from promptolution.utils.formatting import extract_from_tag
 from promptolution.utils.logging import get_logger
 
 if TYPE_CHECKING:  # pragma: no cover
+    from promptolution.llms.base_llm import BaseLLM
     from promptolution.tasks.base_task import EvalStrategy
     from promptolution.utils.config import ExperimentConfig
 
@@ -132,7 +131,7 @@ class JudgeTask(BaseTask):
         judge_responses = self.judge_llm.get_response(prompts)
         scores_str = extract_from_tag(judge_responses, "<final_score>", "</final_score>")
         scores = []
-        for score_str, judge_response in zip(scores_str, judge_responses):
+        for score_str in scores_str:
             try:
                 # only numeric chars, - or . are allowed
                 score_str = "".join(filter(lambda c: c.isdigit() or c in "-.", score_str))
@@ -141,7 +140,7 @@ class JudgeTask(BaseTask):
                 score = (score - self.min_score) / (self.max_score - self.min_score)
                 score = max(0.0, min(1.0, score))
             except ValueError:
-                logger.warning(f"Failed to parse score '{score}' as float. Defaulting to a score 0.0.")
+                logger.warning(f"Failed to parse score '{score_str}' as float. Defaulting to a score 0.0.")
                 score = 0.0
 
             scores.append(score)

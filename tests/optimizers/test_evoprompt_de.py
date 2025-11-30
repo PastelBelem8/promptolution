@@ -1,9 +1,7 @@
 from unittest.mock import patch
 
-import numpy as np
-import pytest
-
 from promptolution.optimizers import EvoPromptDE
+from promptolution.utils.prompt import Prompt
 
 
 def test_evoprompt_de_initialization(mock_meta_llm, initial_prompts, mock_task, mock_predictor):
@@ -20,7 +18,7 @@ def test_evoprompt_de_initialization(mock_meta_llm, initial_prompts, mock_task, 
     # Only verify the essential properties
     assert optimizer.prompt_template == "Create a new prompt from: <prompt0>, <prompt1>, <prompt2>, <prompt3>"
     assert not optimizer.donor_random
-    assert optimizer.prompts == initial_prompts
+    assert [p.instruction for p in optimizer.prompts] == initial_prompts
 
 
 def test_evoprompt_de_pre_optimization_loop(mock_meta_llm, initial_prompts, mock_task, mock_predictor):
@@ -53,8 +51,8 @@ def test_evoprompt_de_step(mock_meta_llm, initial_prompts, mock_task, mock_predi
     )
 
     # Set up initial state
-    optimizer.prompts = initial_prompts
-    optimizer.scores = [0.8, 0.7, 0.6, 0.5, 0.4]  # First prompt is best
+    optimizer.prompts = [Prompt(p) for p in initial_prompts]
+    optimizer.scores = [0.8, 0.7, 0.6, 0.5]  # First prompt is best
 
     # Control randomness
     with patch("numpy.random.choice") as mock_choice:

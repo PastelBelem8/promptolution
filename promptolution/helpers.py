@@ -1,10 +1,11 @@
 """Helper functions for the usage of the libary."""
 
-
-from typing import TYPE_CHECKING, Callable, List, Literal, Optional
+from typing import TYPE_CHECKING, Callable, List, Literal, Optional, Union, cast
 
 from promptolution.tasks.judge_tasks import JudgeTask
 from promptolution.tasks.reward_tasks import RewardTask
+from promptolution.utils.prompt import Prompt
+from promptolution.utils.prompt_creation import create_prompts_from_task_description
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.exemplar_selectors.base_exemplar_selector import BaseExemplarSelector
@@ -28,17 +29,8 @@ from promptolution.optimizers.capo import CAPO
 from promptolution.optimizers.evoprompt_de import EvoPromptDE
 from promptolution.optimizers.evoprompt_ga import EvoPromptGA
 from promptolution.optimizers.opro import OPRO
-from promptolution.optimizers.templates import (
-    CAPO_CROSSOVER_TEMPLATE,
-    CAPO_MUTATION_TEMPLATE,
-    EVOPROMPT_DE_TEMPLATE,
-    EVOPROMPT_DE_TEMPLATE_TD,
-    EVOPROMPT_GA_TEMPLATE,
-    EVOPROMPT_GA_TEMPLATE_TD,
-    OPRO_TEMPLATE,
-    OPRO_TEMPLATE_TD,
-)
-from promptolution.predictors.classifier import FirstOccurrenceClassifier, MarkerBasedClassifier
+from promptolution.predictors.first_occurrence_predictor import FirstOccurrencePredictor
+from promptolution.predictors.maker_based_predictor import MarkerBasedPredictor
 from promptolution.tasks.classification_tasks import ClassificationTask
 from promptolution.utils.logging import get_logger
 
@@ -59,12 +51,13 @@ def run_experiment(df: pd.DataFrame, config: "ExperimentConfig") -> pd.DataFrame
     train_df = df.sample(frac=0.8, random_state=42)
     test_df = df.drop(train_df.index)
     prompts = run_optimization(train_df, config)
-    df_prompt_scores = run_evaluation(test_df, config, prompts)
+    prompts_str = [p.construct_prompt() for p in prompts]
+    df_prompt_scores = run_evaluation(test_df, config, prompts_str)
 
     return df_prompt_scores
 
 
-def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
+def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[Prompt]:
     """Run the optimization phase of the experiment.
 
     Configures all LLMs (downstream, meta, and judge) to use
@@ -74,12 +67,18 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
         config (Config): Configuration object for the experiment.
 
     Returns:
-        List[str]: The optimized list of prompts.
+        List[Prompt]: The optimized list of prompts.
     """
     llm = get_llm(config=config)
     predictor = get_predictor(llm, config=config)
 
-    config.task_description = (config.task_description or "") + " " + (predictor.extraction_description or "")
+    if getattr(config, "prompts") is None:
+        initial_prompts = create_prompts_from_task_description(
+            task_description=config.task_description,
+            llm=llm,
+        )
+        config.prompts = [Prompt(p) for p in initial_prompts]
+
     if config.optimizer == "capo" and (config.eval_strategy is None or "block" not in config.eval_strategy):
         logger.warning("📌 CAPO requires block evaluation strategy. Setting it to 'sequential_block'.")
         config.eval_strategy = "sequential_block"
@@ -94,14 +93,15 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[str]:
     logger.warning("🔥 Starting optimization...")
     prompts = optimizer.optimize(n_steps=config.n_steps)
 
-    if hasattr(config, "prepend_exemplars") and config.prepend_exemplars:
+    if hasattr(config, "posthoc_exemplar_selection") and config.posthoc_exemplar_selection:
         selector = get_exemplar_selector(config.exemplar_selector, task, predictor)
         prompts = [selector.select_exemplars(p, n_examples=config.n_exemplars) for p in prompts]
-
     return prompts
 
 
-def run_evaluation(df: pd.DataFrame, config: "ExperimentConfig", prompts: List[str]) -> pd.DataFrame:
+def run_evaluation(
+    df: pd.DataFrame, config: "ExperimentConfig", prompts: Union[List[Prompt], List[str]]
+) -> pd.DataFrame:
     """Run the evaluation phase of the experiment.
 
     Configures all LLMs (downstream, meta, and judge) to use
@@ -119,8 +119,13 @@ def run_evaluation(df: pd.DataFrame, config: "ExperimentConfig", prompts: List[s
     task = get_task(df, config, judge_llm=llm)
     predictor = get_predictor(llm, config=config)
     logger.warning("📊 Starting evaluation...")
+    if isinstance(prompts[0], str):
+        str_prompts = cast(List[str], prompts)
+        prompts = [Prompt(p) for p in str_prompts]
+    else:
+        str_prompts = [p.construct_prompt() for p in cast(List[Prompt], prompts)]
     scores = task.evaluate(prompts, predictor, eval_strategy="full")
-    df = pd.DataFrame(dict(prompt=prompts, score=scores))
+    df = pd.DataFrame(dict(prompt=str_prompts, score=scores))
     df = df.sort_values("score", ascending=False, ignore_index=True)
 
     return df
@@ -220,50 +225,27 @@ def get_optimizer(
         ValueError: If an unknown optimizer type is specified
     """
     final_optimizer = optimizer or (config.optimizer if config else None)
-    final_task_description = task_description or (config.task_description if config else None)
+    if config is None:
+        config = ExperimentConfig()
+    if task_description is not None:
+        config.task_description = task_description
 
     if final_optimizer == "capo":
-        crossover_template = (
-            CAPO_CROSSOVER_TEMPLATE.replace("<task_desc>", final_task_description)
-            if final_task_description
-            else CAPO_CROSSOVER_TEMPLATE
-        )
-        mutation_template = (
-            CAPO_MUTATION_TEMPLATE.replace("<task_desc>", final_task_description)
-            if final_task_description
-            else CAPO_MUTATION_TEMPLATE
-        )
-
         return CAPO(
             predictor=predictor,
             meta_llm=meta_llm,
             task=task,
-            crossover_template=crossover_template,
-            mutation_template=mutation_template,
             config=config,
         )
 
     if final_optimizer == "evopromptde":
-        template = (
-            EVOPROMPT_DE_TEMPLATE_TD.replace("<task_desc>", final_task_description)
-            if final_task_description
-            else EVOPROMPT_DE_TEMPLATE
-        )
-        return EvoPromptDE(predictor=predictor, meta_llm=meta_llm, task=task, prompt_template=template, config=config)
+        return EvoPromptDE(predictor=predictor, meta_llm=meta_llm, task=task, config=config)
 
     if final_optimizer == "evopromptga":
-        template = (
-            EVOPROMPT_GA_TEMPLATE_TD.replace("<task_desc>", final_task_description)
-            if final_task_description
-            else EVOPROMPT_GA_TEMPLATE
-        )
-        return EvoPromptGA(predictor=predictor, meta_llm=meta_llm, task=task, prompt_template=template, config=config)
+        return EvoPromptGA(predictor=predictor, meta_llm=meta_llm, task=task, config=config)
 
     if final_optimizer == "opro":
-        template = (
-            OPRO_TEMPLATE_TD.replace("<task_desc>", final_task_description) if final_task_description else OPRO_TEMPLATE
-        )
-        return OPRO(predictor=predictor, meta_llm=meta_llm, task=task, prompt_template=template, config=config)
+        return OPRO(predictor=predictor, meta_llm=meta_llm, task=task, config=config)
 
     raise ValueError(f"Unknown optimizer: {final_optimizer}")
 
@@ -296,23 +278,23 @@ def get_predictor(downstream_llm=None, type: "PredictorType" = "marker", *args, 
     """Factory function to create and return a predictor instance.
 
     This function supports three types of predictors:
-    1. FirstOccurrenceClassifier: A predictor that classifies based on first occurrence of the label.
-    2. MarkerBasedClassifier: A predictor that classifies based on a marker.
+    1. FirstOccurrencePredictor: A predictor that classifies based on first occurrence of the label.
+    2. MarkerBasedPredictor: A predictor that classifies based on a marker.
 
     Args:
         downstream_llm: The language model to use for prediction.
         type (Literal["first_occurrence", "marker"]): The type of predictor to create:
-                    - "first_occurrence" for FirstOccurrenceClassifier
-                    - "marker" (default) for MarkerBasedClassifier
+                    - "first_occurrence" for FirstOccurrencePredictor
+                    - "marker" (default) for MarkerBasedPredictor
         *args: Variable length argument list passed to the predictor constructor.
         **kwargs: Arbitrary keyword arguments passed to the predictor constructor.
 
     Returns:
-        An instance of FirstOccurrenceClassifier or MarkerBasedClassifier.
+        An instance of FirstOccurrencePredictor or MarkerBasedPredictor.
     """
     if type == "first_occurrence":
-        return FirstOccurrenceClassifier(downstream_llm, *args, **kwargs)
+        return FirstOccurrencePredictor(downstream_llm, *args, **kwargs)
     elif type == "marker":
-        return MarkerBasedClassifier(downstream_llm, *args, **kwargs)
+        return MarkerBasedPredictor(downstream_llm, *args, **kwargs)
     else:
         raise ValueError(f"Invalid predictor type: '{type}'")

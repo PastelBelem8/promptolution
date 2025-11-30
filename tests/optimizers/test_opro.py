@@ -3,6 +3,7 @@ from unittest.mock import patch
 import numpy as np
 
 from promptolution.optimizers import OPRO
+from promptolution.utils.prompt import Prompt
 
 
 def test_opro_initialization(mock_meta_llm, initial_prompts, mock_task, mock_predictor):
@@ -23,7 +24,7 @@ def test_opro_initialization(mock_meta_llm, initial_prompts, mock_task, mock_pre
     assert optimizer.max_num_instructions == 10
     assert optimizer.num_instructions_per_step == 4
     assert optimizer.num_few_shots == 2
-    assert optimizer.prompts == initial_prompts
+    assert [p.instruction for p in optimizer.prompts] == initial_prompts
 
 
 def test_opro_sample_examples(mock_meta_llm, initial_prompts, mock_task, mock_predictor):
@@ -62,7 +63,7 @@ def test_opro_format_instructions(mock_meta_llm, initial_prompts, mock_task, moc
     )
 
     # Set scores for testing
-    optimizer.prompts = initial_prompts
+    optimizer.prompts = [Prompt(p) for p in initial_prompts]
     optimizer.scores = [0.7, 0.9, 0.5, 0.8, 0.6]
 
     # Format instructions
@@ -109,7 +110,7 @@ def test_opro_step(mock_meta_llm, initial_prompts, mock_task, mock_predictor):
     )
 
     # Set up initial state
-    optimizer.prompts = initial_prompts
+    optimizer.prompts = [Prompt(p) for p in initial_prompts]
     optimizer.scores = [0.7, 0.6, 0.5, 0.8]
     optimizer.meta_prompt = "Meta prompt with instructions and examples"
 

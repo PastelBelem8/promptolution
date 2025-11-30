@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from promptolution.helpers import FirstOccurrenceClassifier, MarkerBasedClassifier
+from promptolution.helpers import FirstOccurrencePredictor, MarkerBasedPredictor
 
 
 def test_first_occurrence_classifier(mock_downstream_llm, mock_df):
-    """Test the FirstOccurrenceClassifier."""
+    """Test the FirstOccurrencePredictor."""
     # Create classifier
-    classifier = FirstOccurrenceClassifier(llm=mock_downstream_llm, classes=mock_df["y"].values)
+    classifier = FirstOccurrencePredictor(llm=mock_downstream_llm, classes=mock_df["y"].values)
 
     # Test with multiple inputs
     xs = ["I love this product!", "I hate this product!", "This product is okay.", "ja ne"]
@@ -25,9 +25,9 @@ def test_first_occurrence_classifier(mock_downstream_llm, mock_df):
 
 
 def test_marker_based_classifier(mock_downstream_llm, mock_df):
-    """Test the MarkerBasedClassifier."""
+    """Test the MarkerBasedPredictor."""
     # Create classifier
-    classifier = MarkerBasedClassifier(
+    classifier = MarkerBasedPredictor(
         llm=mock_downstream_llm,
         classes=mock_df["y"].values,
         begin_marker="<final_answer>",
@@ -56,9 +56,9 @@ def test_marker_based_classifier(mock_downstream_llm, mock_df):
 
 
 def test_marker_based_without_classes(mock_downstream_llm):
-    """Test MarkerBasedClassifier without predefined classes."""
+    """Test MarkerBasedPredictor without predefined classes."""
     # Create classifier without classes
-    classifier = MarkerBasedClassifier(
+    predictor = MarkerBasedPredictor(
         llm=mock_downstream_llm,
         classes=None,  # No class restrictions
         begin_marker="<final_answer>",
@@ -70,7 +70,7 @@ def test_marker_based_without_classes(mock_downstream_llm):
     prompts = ["Classify:"] * len(xs)
 
     # Make predictions
-    predictions = classifier.predict(prompts, xs)
+    predictions = predictor.predict(prompts, xs)
 
     # Verify shape and content - should accept any value between markers
     assert len(predictions) == 4
@@ -83,7 +83,7 @@ def test_marker_based_without_classes(mock_downstream_llm):
 def test_multiple_prompts_with_classifiers(mock_downstream_llm, mock_df):
     """Test using multiple prompts with classifiers."""
     # Create classifier
-    classifier = FirstOccurrenceClassifier(llm=mock_downstream_llm, classes=mock_df["y"].values)
+    classifier = FirstOccurrencePredictor(llm=mock_downstream_llm, classes=mock_df["y"].values)
 
     # Test with multiple prompts
     prompts = ["Classify:", "Classify:", "Rate:", "Rate:"]
@@ -103,7 +103,7 @@ def test_multiple_prompts_with_classifiers(mock_downstream_llm, mock_df):
 def test_sequence_return_with_classifiers(mock_downstream_llm, mock_df):
     """Test return_seq parameter with classifiers."""
     # Create classifier
-    classifier = MarkerBasedClassifier(llm=mock_downstream_llm, classes=mock_df["y"].values)
+    classifier = MarkerBasedPredictor(llm=mock_downstream_llm, classes=mock_df["y"].values)
 
     # Test with return_seq=True
     prompts = ["Classify:"]
@@ -128,15 +128,15 @@ def test_invalid_class_labels(mock_downstream_llm):
 
     # Should raise an assertion error
     with pytest.raises(AssertionError):
-        FirstOccurrenceClassifier(llm=mock_downstream_llm, classes=invalid_classes)
+        FirstOccurrencePredictor(llm=mock_downstream_llm, classes=invalid_classes)
 
     with pytest.raises(AssertionError):
-        MarkerBasedClassifier(llm=mock_downstream_llm, classes=invalid_classes)
+        MarkerBasedPredictor(llm=mock_downstream_llm, classes=invalid_classes)
 
 
 def test_marker_based_missing_markers(mock_downstream_llm):
-    """Test MarkerBasedClassifier behavior when markers are missing."""
-    classifier = MarkerBasedClassifier(llm=mock_downstream_llm, classes=["will", "not", "be", "used"])
+    """Test MarkerBasedPredictor behavior when markers are missing."""
+    classifier = MarkerBasedPredictor(llm=mock_downstream_llm, classes=["will", "not", "be", "used"])
 
     # When markers are missing, it should default to first class
     prompts = ["Classify:"]

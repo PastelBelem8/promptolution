@@ -8,13 +8,12 @@ from datasets import load_dataset
 
 from promptolution.llms import APILLM
 from promptolution.optimizers import CAPO
-from promptolution.predictors import MarkerBasedClassifier
+from promptolution.predictors import MarkerBasedPredictor
 from promptolution.tasks import ClassificationTask
 from promptolution.utils import LoggerCallback
 
 logger = Logger(__name__)
 
-"""Run a test run for any of the implemented optimizers."""
 parser = argparse.ArgumentParser()
 parser.add_argument("--base-url", default="https://api.openai.com/v1")
 parser.add_argument("--model", default="gpt-4o-2024-08-06")
@@ -49,7 +48,7 @@ llm = APILLM(api_url=args.base_url, model_id=args.model, api_key=args.token)
 downstream_llm = llm
 meta_llm = llm
 
-predictor = MarkerBasedClassifier(downstream_llm, classes=task.classes)
+predictor = MarkerBasedPredictor(downstream_llm, classes=task.classes)
 
 callbacks = [LoggerCallback(logger)]
 

@@ -8,7 +8,7 @@ from datasets import load_dataset
 
 from promptolution.llms import VLLM
 from promptolution.optimizers import OPRO, OPRO_TEMPLATE_TD
-from promptolution.predictors import MarkerBasedClassifier
+from promptolution.predictors import MarkerBasedPredictor
 from promptolution.tasks import ClassificationTask
 from promptolution.utils import FileOutputCallback, LoggerCallback, TokenCountCallback
 
@@ -58,7 +58,7 @@ llm = VLLM(
 downstream_llm = llm
 meta_llm = llm
 
-predictor = MarkerBasedClassifier(downstream_llm, classes=task.classes)
+predictor = MarkerBasedPredictor(downstream_llm, classes=task.classes)
 
 optimizer = OPRO(
     task=task,

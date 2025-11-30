@@ -1,7 +1,5 @@
 import numpy as np
 
-from tests.mocks.mock_predictor import MockPredictor
-
 
 def test_predictor_predict_flow(mock_predictor):
     """Test the basic prediction flow from prompt to final prediction."""

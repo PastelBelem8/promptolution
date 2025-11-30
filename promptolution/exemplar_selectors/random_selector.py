@@ -5,6 +5,7 @@ import numpy as np
 from typing import TYPE_CHECKING, List, Optional
 
 from promptolution.exemplar_selectors.base_exemplar_selector import BaseExemplarSelector
+from promptolution.utils.prompt import Prompt
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.predictors.base_predictor import BasePredictor
@@ -37,18 +38,18 @@ class RandomSelector(BaseExemplarSelector):
         self.desired_score = desired_score
         super().__init__(task, predictor, config)
 
-    def select_exemplars(self, prompt: str, n_examples: int = 5) -> str:
+    def select_exemplars(self, prompt: Prompt, n_examples: int = 5) -> Prompt:
         """Select exemplars using a random selection strategy.
 
         This method generates random examples and selects those that are evaluated as correct
         (score == self.desired_score) until the desired number of exemplars is reached.
 
         Args:
-            prompt (str): The input prompt to base the exemplar selection on.
+            prompt (Prompt): The input prompt to base the exemplar selection on.
             n_examples (int, optional): The number of exemplars to select. Defaults to 5.
 
         Returns:
-            str: A new prompt that includes the original prompt and the selected exemplars.
+            Prompt: A new prompt that includes the original prompt and the selected exemplars.
         """
         examples: List[str] = []
         while len(examples) < n_examples:
@@ -59,4 +60,4 @@ class RandomSelector(BaseExemplarSelector):
             seq = seqs[0][0]
             if score == self.desired_score:
                 examples.append(seq)
-        return "\n\n".join([prompt] + examples) + "\n\n"
+        return Prompt(prompt.instruction, examples)

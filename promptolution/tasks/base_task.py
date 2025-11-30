@@ -6,7 +6,9 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union, overload
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union, overload
+
+from promptolution.utils.prompt import Prompt
 
 if TYPE_CHECKING:  # pragma: no cover
     from promptolution.predictors.base_predictor import BasePredictor
@@ -103,7 +105,7 @@ class BaseTask(ABC):
 
     def _prepare_batch(
         self,
-        prompts: List[str],
+        prompts: List[Prompt],
         xs: List[str],
         ys: List[str],
         eval_strategy: Literal["full", "subsample", "sequential_block", "random_block", "evaluated"] = "full",
@@ -117,14 +119,14 @@ class BaseTask(ABC):
         keys_to_predict = []
         for prompt in prompts:
             for x, y in zip(xs, ys):
-                cache_key = (prompt, x, str(y))
+                cache_key = (prompt.construct_prompt(), x, str(y))
                 if cache_key not in self.eval_cache:
                     keys_to_predict.append(cache_key)
         return keys_to_predict
 
     def _collect_results_from_cache(
         self,
-        prompts: List[str],
+        prompts: List[Prompt],
         xs: List[str],
         ys: List[str],
         return_agg_scores: bool,
@@ -140,8 +142,11 @@ class BaseTask(ABC):
             datapoint_scores = []
             datapoint_seqs = []
             for x, y in zip(xs, ys):
-                cache_key = (prompt, x, y)
-                datapoint_scores.append(self.eval_cache[cache_key])
+                cache_key = (prompt.construct_prompt(), x, y)
+                datapoint_score = self.eval_cache.get(cache_key)
+                if datapoint_score is None:
+                    continue
+                datapoint_scores.append(datapoint_score)
                 if return_seq:
                     datapoint_seqs.append(self.seq_cache.get(cache_key, ""))
             scores.append(datapoint_scores)
@@ -165,7 +170,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: List[str],
+        prompts: List[Prompt],
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[True] = True,
@@ -177,7 +182,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: List[str],
+        prompts: List[Prompt],
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[False] = False,
@@ -189,7 +194,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: List[str],
+        prompts: List[Prompt],
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[False] = False,
@@ -201,7 +206,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: str,
+        prompts: Prompt,
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[True] = True,
@@ -213,7 +218,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: str,
+        prompts: Prompt,
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[False] = False,
@@ -225,7 +230,7 @@ class BaseTask(ABC):
     @overload
     def evaluate(
         self,
-        prompts: str,
+        prompts: Prompt,
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: Literal[False] = False,
@@ -236,7 +241,7 @@ class BaseTask(ABC):
 
     def evaluate(
         self,
-        prompts: Union[str, List[str]],
+        prompts: Union[Prompt, List[Prompt]],
         predictor: "BasePredictor",
         system_prompts: Optional[Union[str, List[str]]] = None,
         return_agg_scores: bool = True,
@@ -253,7 +258,7 @@ class BaseTask(ABC):
 
         seqs: List[str] = []
 
-        prompts = [prompts] if isinstance(prompts, str) else prompts
+        prompts = [prompts] if isinstance(prompts, Prompt) else prompts
         eval_strategy = eval_strategy or self.eval_strategy
         xs, ys = self.subsample(eval_strategy=eval_strategy)
         batches = self._prepare_batch(prompts, xs, ys, eval_strategy=eval_strategy)
