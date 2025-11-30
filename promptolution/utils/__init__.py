@@ -10,7 +10,11 @@ from promptolution.utils.callbacks import (
 from promptolution.utils.config import ExperimentConfig
 from promptolution.utils.logging import get_logger, setup_logging
 from promptolution.utils.prompt import Prompt, sort_prompts_by_scores
-from promptolution.utils.prompt_creation import create_prompt_variation, create_prompts_from_samples
+from promptolution.utils.prompt_creation import (
+    create_prompt_variation,
+    create_prompts_from_samples,
+    create_prompts_from_task_description,
+)
 from promptolution.utils.templates import (
     CAPO_CROSSOVER_TEMPLATE,
     CAPO_FEWSHOT_TEMPLATE,
@@ -43,6 +47,7 @@ __all__ = [
     "sort_prompts_by_scores",
     "create_prompt_variation",
     "create_prompts_from_samples",
+    "create_prompts_from_task_description",
     "CAPO_CROSSOVER_TEMPLATE",
     "CAPO_FEWSHOT_TEMPLATE",
     "CAPO_MUTATION_TEMPLATE",
