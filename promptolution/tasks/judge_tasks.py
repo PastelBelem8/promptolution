@@ -1,9 +1,8 @@
 """Module for judge tasks."""
 
-import numpy as np
 import pandas as pd
 
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Optional
 
 from promptolution.llms.base_llm import BaseLLM
 from promptolution.tasks.base_task import BaseTask

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from promptolution.llms.base_llm import BaseLLM
 from promptolution.predictors.base_predictor import BasePredictor

@@ -1,8 +1,5 @@
 from unittest.mock import patch
 
-import numpy as np
-import pytest
-
 from promptolution.optimizers import EvoPromptDE
 from promptolution.utils.prompt import Prompt
 
