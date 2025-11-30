@@ -8,16 +8,13 @@
 
 ![promptolution](https://github.com/user-attachments/assets/84c050bd-61a1-4f2e-bc4e-874d9b4a69af)
 
-
-
 <p align="center">
-  <img src="https://mcml.ai/images/footer/lmu_white.webp" height="40">
-  <img src="https://github.com/user-attachments/assets/41edb678-16c4-4a3a-a579-62459106cf48" height="40">
-  <img src="https://github.com/user-attachments/assets/1ae42b4a-163e-43ed-b691-c253d4f4c814"  height="40">
-  <img  src="https://github.com/user-attachments/assets/d6977ca8-7b52-4714-83d7-610743c7d52c"  height="40"/>
-  <img src="https://mcml.ai/images/footer/tum_white.webp" height="40">
+<img height="60" alt="lmu_logo" src="https://github.com/user-attachments/assets/5aecd0d6-fc2d-48b2-b395-d1877578a3c5" />
+<img height="60" alt="mcml" src="https://github.com/user-attachments/assets/d9f3b18e-a5ec-4c3f-b449-e57cb977f483" />
+<img height="60" alt="ellis_logo" src="https://github.com/user-attachments/assets/60654a27-0f8f-4624-a1d5-5122f2632bec" />
+<img height="60" alt="uni_freiburg_color" src="https://github.com/user-attachments/assets/f5eabbd2-ae6a-497b-857b-71958ed77335" />
+<img height="60" alt="tum_logo" src="https://github.com/user-attachments/assets/982ec2f0-ec14-4dc2-8d75-bfae09d4fa73" />
 </p>
-
 
 ## 🚀 What is Promptolution?
 
