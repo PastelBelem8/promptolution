@@ -4,12 +4,12 @@ import pandas as pd
 
 from typing import TYPE_CHECKING, List, Optional
 
-from promptolution.llms.base_llm import BaseLLM
 from promptolution.tasks.base_task import BaseTask
 from promptolution.utils.formatting import extract_from_tag
 from promptolution.utils.logging import get_logger
 
 if TYPE_CHECKING:  # pragma: no cover
+    from promptolution.llms.base_llm import BaseLLM
     from promptolution.tasks.base_task import EvalStrategy
     from promptolution.utils.config import ExperimentConfig
 
