@@ -132,9 +132,11 @@ class CAPO(BaseOptimizer):
         population = []
         for prompt in initial_prompts:
             num_examples = random.randint(0, self.upper_shots)
-            instruction = prompt if isinstance(prompt, str) else prompt.instruction
-            few_shots = self._create_few_shot_examples(instruction, num_examples)
-            population.append(Prompt(instruction, few_shots))
+            few_shots = self._create_few_shot_examples(
+                instruction=prompt.instruction,
+                num_examples=num_examples,
+            )
+            population.append(Prompt(prompt.instruction, few_shots))
 
         return population
 

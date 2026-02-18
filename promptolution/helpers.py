@@ -1,6 +1,6 @@
 """Helper functions for the usage of the libary."""
 
-from typing import TYPE_CHECKING, Callable, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Callable, List, Literal, Optional, cast
 
 from promptolution.tasks.judge_tasks import JudgeTask
 from promptolution.tasks.reward_tasks import RewardTask
@@ -51,8 +51,7 @@ def run_experiment(df: pd.DataFrame, config: "ExperimentConfig") -> pd.DataFrame
     train_df = df.sample(frac=0.8, random_state=42)
     test_df = df.drop(train_df.index)
     prompts = run_optimization(train_df, config)
-    prompts_str = [p.construct_prompt() for p in prompts]
-    df_prompt_scores = run_evaluation(test_df, config, prompts_str)
+    df_prompt_scores = run_evaluation(test_df, config, prompts)
 
     return df_prompt_scores
 
@@ -78,6 +77,8 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[Promp
             llm=llm,
         )
         config.prompts = [Prompt(p) for p in initial_prompts]
+    elif len(config.prompts) > 0 and isinstance(config.prompts[0], str):
+        config.prompts = [Prompt(p) for p in cast(List[str], config.prompts)]
 
     if config.optimizer == "capo" and (config.eval_strategy is None or "block" not in config.eval_strategy):
         logger.warning("📌 CAPO requires block evaluation strategy. Setting it to 'sequential_block'.")
@@ -99,9 +100,7 @@ def run_optimization(df: pd.DataFrame, config: "ExperimentConfig") -> List[Promp
     return prompts
 
 
-def run_evaluation(
-    df: pd.DataFrame, config: "ExperimentConfig", prompts: Union[List[Prompt], List[str]]
-) -> pd.DataFrame:
+def run_evaluation(df: pd.DataFrame, config: "ExperimentConfig", prompts: List[Prompt]) -> pd.DataFrame:
     """Run the evaluation phase of the experiment.
 
     Configures all LLMs (downstream, meta, and judge) to use
@@ -110,7 +109,7 @@ def run_evaluation(
     Args:
         df (pd.DataFrame): Input DataFrame containing the data.
         config (Config): Configuration object for the experiment.
-        prompts (List[str]): List of prompts to evaluate.
+        prompts (List[Prompt]): List of prompts to evaluate.
 
     Returns:
         pd.DataFrame: A DataFrame containing the prompts and their scores.
@@ -119,11 +118,7 @@ def run_evaluation(
     task = get_task(df, config, judge_llm=llm)
     predictor = get_predictor(llm, config=config)
     logger.warning("📊 Starting evaluation...")
-    if isinstance(prompts[0], str):
-        str_prompts = cast(List[str], prompts)
-        prompts = [Prompt(p) for p in str_prompts]
-    else:
-        str_prompts = [p.construct_prompt() for p in cast(List[Prompt], prompts)]
+    str_prompts = [p.construct_prompt() for p in prompts]
     scores = task.evaluate(prompts, predictor, eval_strategy="full")
     df = pd.DataFrame(dict(prompt=str_prompts, score=scores))
     df = df.sort_values("score", ascending=False, ignore_index=True)
